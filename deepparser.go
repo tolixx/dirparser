@@ -8,14 +8,14 @@ import (
 
 type deepReader struct {
 	scanner   *bufio.Scanner
-	Separator string
+	separator string
 }
 
 // NewDeepReader returns multibyteCSV-like reader
-func NewDeepReader(r io.Reader, sep string) Reader {
+func NewDeepReader(r io.Reader, separator string) Reader {
 	dr := &deepReader{}
 	dr.scanner = bufio.NewScanner(r)
-	dr.Separator = sep
+	dr.separator = separator
 	return dr
 }
 
@@ -28,6 +28,6 @@ func (dr *deepReader) Read() ([]string, error) {
 		return nil, err
 	}
 
-	parts := strings.Split(strings.TrimSpace(dr.scanner.Text()), dr.Separator)
+	parts := strings.Split(strings.TrimSpace(dr.scanner.Text()), dr.separator)
 	return parts, nil
 }
