@@ -3,6 +3,7 @@ package dirparser
 import (
 	"io"
 	"os"
+	"strings"
 )
 
 // Reader interface compilant with csv.Reader to use it with csv
@@ -40,6 +41,7 @@ func ParseFile(path string, parser Parser) error {
 }
 
 func parseDir(path string, parser Parser) error {
+	path = strings.TrimRight(path, "/")
 	files, err := readDir(path)
 	if err != nil {
 		return err
