@@ -18,29 +18,73 @@ type Parser interface {
 	Close() error
 }
 
-// ParsePath for parse path
-func ParsePath(path string, parser Parser) error {
+// Processor just recursive walk on file tree
+type Processor interface {
+	Process(filename string) error
+}
+
+type proxyProcessor struct {
+	parser Parser
+}
+
+func (p *proxyProcessor) Process(filename string) error {
+	file, err := os.Open(filename)
+	if err != nil {
+		return err
+	}
+	defer file.Close()
+
+	reader, err := p.parser.Init(file, filename)
+	if err != nil {
+		return err
+	}
+
+	for {
+		record, err := reader.Read()
+		if err == io.EOF {
+			break
+		}
+		if err != nil {
+			continue
+		}
+		p.parser.Parse(record)
+	}
+
+	return p.parser.Close()
+}
+
+func parseProcessor(parser Parser) Processor {
+	return &proxyProcessor{parser: parser}
+}
+
+// ParsePath parse using Parse Interface
+func ParsePath(path string, p Parser) error {
+	return ProcessPath(path, parseProcessor(p))
+}
+
+// ProcessPath for parse path
+func ProcessPath(path string, p Processor) error {
 	info, err := os.Stat(path)
 	if err != nil {
 		return err
 	}
 	if info.IsDir() {
-		return parseDir(path, parser)
+		return processDir(path, p)
 	}
-	return ParseFile(path, parser)
+	return ProcessFile(path, p)
 }
 
-// ParseFile parse single file
-func ParseFile(path string, parser Parser) error {
+// ProcessFile process a single file
+func ProcessFile(path string, p Processor) error {
 	reader, err := os.Open(path)
 	if err != nil {
 		return err
 	}
 	defer reader.Close()
-	return parseReader(reader, parser, path)
+	return p.Process(path)
 }
 
-func parseDir(path string, parser Parser) error {
+func processDir(path string, p Processor) error {
 	path = strings.TrimRight(path, "/")
 	files, err := readDir(path)
 	if err != nil {
@@ -54,29 +98,9 @@ func parseDir(path string, parser Parser) error {
 		}
 
 		filename := path + "/" + name
-		ParsePath(filename, parser)
+		ProcessPath(filename, p)
 	}
 	return nil
-}
-
-func parseReader(r io.Reader, parser Parser, filename string) error {
-	reader, err := parser.Init(r, filename)
-	if err != nil {
-		return err
-	}
-
-	for {
-		record, err := reader.Read()
-		if err == io.EOF {
-			break
-		}
-		if err != nil {
-			continue
-		}
-		parser.Parse(record)
-	}
-
-	return parser.Close()
 }
 
 func readDir(name string) ([]os.DirEntry, error) {
@@ -85,6 +109,5 @@ func readDir(name string) ([]os.DirEntry, error) {
 		return nil, err
 	}
 	defer d.Close()
-
 	return d.ReadDir(0)
 }
